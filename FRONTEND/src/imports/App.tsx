@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Eraser, RotateCcw, Pencil, Trash2 } from 'lucide-react';
+import { API_DETECT } from './apiConstants';
 
 type Mode = 'pencil' | 'eraser';
 type DetectionType = 'letter' | 'word';
@@ -98,27 +99,39 @@ export default function App() {
   };
 
   const simulateDetection = () => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const words = ['HELLO', 'WORLD', 'CODING', 'DESIGN', 'REACT', 'INDONESIA'];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    if (detectionType === 'letter') {
-      const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-      const randomConfidence = Math.floor(Math.random() * 20) + 75;
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
 
-      setTimeout(() => {
-        setDetectedResult(randomLetter);
-        setConfidence(randomConfidence);
-        setDetectedLetters([...detectedLetters, randomLetter]);
-      }, 300);
-    } else {
-      const randomWord = words[Math.floor(Math.random() * words.length)];
-      const randomConfidence = Math.floor(Math.random() * 15) + 80;
+      const formData = new FormData();
+      formData.append('image', blob, 'drawing.png');
 
-      setTimeout(() => {
-        setDetectedResult(randomWord);
-        setConfidence(randomConfidence);
-      }, 300);
-    }
+      try {
+        const response = await fetch(API_DETECT, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Gagal menghubungkan ke API');
+        }
+
+        const data = await response.json();
+        const detected = String(data.prediction);
+        const conf = Math.floor(data.confidence * 100);
+
+        setDetectedResult(detected);
+        setConfidence(conf);
+        
+        if (detectionType === 'letter') {
+          setDetectedLetters((prev) => [...prev, detected]);
+        }
+      } catch (error) {
+        console.error('Error saat deteksi:', error);
+      }
+    });
   };
 
   const clearDetectedLetters = () => {
