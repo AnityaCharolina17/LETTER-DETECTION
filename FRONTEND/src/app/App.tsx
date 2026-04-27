@@ -103,28 +103,44 @@ export default function App() {
     setDetectedLetters([]);
   };
 
-  const simulateDetection = () => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const words = ['HELLO', 'WORLD', 'CODING', 'DESIGN', 'REACT', 'INDONESIA'];
+  const simulateDetection = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    if (detectionType === 'letter') {
-      const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-      const randomConfidence = Math.floor(Math.random() * 20) + 75;
+    // Convert canvas to Blob (PNG format)
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
 
-      setTimeout(() => {
-        setDetectedResult(randomLetter);
-        setConfidence(randomConfidence);
-        setDetectedLetters([...detectedLetters, randomLetter]);
-      }, 300);
-    } else {
-      const randomWord = words[Math.floor(Math.random() * words.length)];
-      const randomConfidence = Math.floor(Math.random() * 15) + 80;
+      const formData = new FormData();
+      formData.append('image', blob, 'canvas.png');
+      // Kirim juga tipe deteksi yang sedang dipilih (Huruf atau Angka)
+      formData.append('type', detectionType === 'letter' ? 'letter' : 'number');
+      
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/detect', {
+          method: 'POST',
+          body: formData,
+        });
 
-      setTimeout(() => {
-        setDetectedResult(randomWord);
-        setConfidence(randomConfidence);
-      }, 300);
-    }
+        if (!response.ok) {
+          throw new Error('Gagal menghubungi server');
+        }
+
+        const data = await response.json();
+        
+        // Data dari backend: { prediction: "A", confidence: 98.5 }
+        setDetectedResult(data.prediction);
+        setConfidence(data.confidence);
+        
+        if (detectionType === 'letter') {
+          setDetectedLetters((prev) => [...prev, data.prediction]);
+        }
+      } catch (error) {
+        console.error("Error detecting image:", error);
+        setDetectedResult('Error');
+        setConfidence(0);
+      }
+    }, 'image/png');
   };
 
   const clearDetectedLetters = () => {
@@ -137,7 +153,7 @@ export default function App() {
         {/* Header */}
         <div className="text-center mb-3">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Pendeteksi Huruf & Kata
+            Pendeteksi Huruf & Angka
           </h1>
         </div>
 
@@ -254,7 +270,7 @@ export default function App() {
                       : 'bg-gray-100 text-gray-700 hover:bg-cyan-100'
                   }`}
                 >
-                  Kata
+                  Angka
                 </button>
               </div>
             </div>
@@ -286,7 +302,7 @@ export default function App() {
               <div>
                 <div className="text-center p-2.5 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-lg mb-2.5">
                   <p className="text-sm font-bold text-gray-700 mb-1">
-                    {detectionType === 'letter' ? '🔤 Huruf:' : '📝 Kata:'}
+                    {detectionType === 'letter' ? '🔤 Huruf:' : '� Angka:'}
                   </p>
                   <div className="text-4xl font-bold text-blue-700 mb-1">{detectedResult}</div>
                   <div className="text-sm">
